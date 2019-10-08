@@ -1,9 +1,7 @@
 using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
+using System.Diagnostics;
 using System.Text;
-using System.Threading.Tasks;
+using System.Text.RegularExpressions;
 
 /*
  * написать функцию, принимающую строку, 
@@ -13,91 +11,211 @@ using System.Threading.Tasks;
  * По возможности не использовать стандартные функции.
  * Если дата введена не корректно - возвращает пустую строку.
  * Например функция принимает 5/9-11 возвращает 05.09.2011
- *
+ * 
+ * Проверки :
+ * Числа показывающие день и месяц проверяются на  
+ * - дни не более 31,
+ * - месяцы не более 12
+ * Если имеем одно число - дописываем впереди 0
+ * Год - для текущей разработки подразумеваем, что год это 4-х значное число
+ * Т.е. если значение года из 2-х чисел то дописываем 20, а если 3 - х значное то допишем 2
+ * 
+ * ltvch 07.10.2019
  */
-
 
 namespace ParceStringWithDate
 {
-    class Program
+    internal class Program
     {
-        static void Main(string[] args)
+        private static void Main(string[] args)
         {
-            string date = "05/ 9 - 11";
+            string date = /*"5/ 09 /// 111"*/ "5\\ 9 - 1878";
 
-            char[] chars = date.ToCharArray();
+            Console.WriteLine(ParseString(ParseStringUseRegExp(date)));
+            Console.WriteLine(ParseString(ParceStringUseSplit(date)));
 
-            ParseString1(date);
-           // char[] ret = date.Where(x => !char.IsNumber(x)).ToArray();
-
-            //string day = new string(date.TakeWhile(c => char.IsDigit(c)).ToArray());
-            //string NotDate = date.Substring(day.Length);
-
-            //string month = new string(NotDate.TakeWhile(c => !char.IsSymbol(c)).ToArray());
-            //string NotMonth = NotDate.Substring(month.Length);
-
-            //           string yyyy = new string(date.TakeWhile(c => char.IsDigit(c)).ToArray());
-            //           date.TakeWhile(c => char.IsDigit(c)).ToArray();
-
-
-            //foreach(char c in chars)
-            //{
-            //    if (char.IsDigit(c) & (char.IsDigit(c)))
-            //    {
-
-            //    }
-            //}
 
             Console.ReadLine();
         }
 
-        public static string ParseString1(string phrase)//is suppsoed to parse the string
+        /// <summary>
+        /// Создаем массив строк содержащий день, месяц и год используя регулярное выражение
+        /// </summary>
+        /// <param name="phrase">Исходная строка</param>
+        /// <returns>Возвращаем масив строк</returns>
+        public static string[] ParseStringUseRegExp(string phrase)
         {
-            string fin = "\n";
-            char[] delimiterChars = { ' ', '\n', ',', '\0', '/', '\\', '-', ';' };
+            ///делим строку с датой на массив групп чисел по шаблону регулярного выражения
+            return Regex.Split(phrase, @"(?<day>\d{1,2})\D+(?<month>\d{1,2})\D+(?<year>\d{2,4})"); ;
+        }
+
+        /// <summary>
+        /// Создаем масив строк содержащий день, месяц и год распарсив строку
+        /// </summary>
+        /// <param name="phrase">Исходная строка</param>
+        /// <returns>Возвращаем масив строк</returns>
+        private static string[] ParceStringUseSplit(string phrase)
+        {
+            ///набор разделителей в тексте для даты
+            char[] delimiterChars = { ' ', '\n', '\t', '\0', '/', '\\', '-', ';', ',', '.' };
+            ///делим строку с датой на массив групп чисел
             string[] words = phrase.Split(delimiterChars);
-            string digitword = string.Empty;
 
-            // words.Split(del);
+            return words;
+        }
 
-            for (int i = 0; i < words.Length; i++)
+        /// <summary>
+        /// Формируем выходную строку.
+        /// </summary>
+        /// <param name="words">Массив строковых данных</param>
+        /// <returns>Строка с датой</returns>
+        public static string ParseString(string[] words)//is suppsoed to parse the string
+        {
+            ///пустая строка для сформированной даты
+            string result = string.Empty;//""
+
+            DelByValue(ref words, "");//удаляем ставшие ненужными пробелы
+            #region --- Первая проверка в режиме отладки ---
+#if DEBUG
+            Debug.WriteLine(string.Concat(words));
+#endif
+            #endregion
+            ///для удобства чтения кода передаем данные из массива в отдельные переменные
+            ///Кроме того, таким способом мы игнорируем все другие записи кроме первых трех групп чисел
+            string day = words[0];
+            string month = words[1];
+            string year = words[2];
+
+            //todo Обрабатываем или нет "ненужные" значения в массиве
+            /// Обрабатываем "ненужные" значения в массиве
+            if (words.Length > 3)
             {
-                if (!string.IsNullOrEmpty(words[i]) || !string.IsNullOrWhiteSpace(words[i]))
+#if !DEBUG
+                words = DelByIndex(words);//укорачиваем массив если обрабатываем первые три группы чисел
+                return result;                               
+#else
+                throw new Exception("В дате более чем три группы чисел. Проверте вводимые данные");//или выбрасываем ошибку
+#endif
+            }
+
+            #region --- Обработка исключений в формате даты ---
+
+            if (day.Length > 2)
+            {
+#if !DEBUG
+                 return result;
+#else
+                throw new Exception("В дате не может быть более двух чисел");
+#endif
+            }
+
+            if (Int32.Parse(day) > 31)
+            {
+#if !DEBUG
+                return result;
+#else
+                throw new Exception("В дате не может быть более 31 дня");
+#endif
+            }
+
+            day = ZiroInFront(day);//дописывем спереди ноль если нужно
+
+            if (Int32.Parse(month) > 12)
+            {
+#if !DEBUG
+                   return result;
+#else
+                throw new Exception("Не может быть более 12 месяцев");
+#endif
+            }
+
+            month = ZiroInFront(month);//дописывем спереди ноль если нужно
+
+            year = ZiroInFront(year);//дописывем спереди ноль если нужно
+
+            if (year.Length <= 2)
+            {
+                year = year.Insert(0, "20");
+            }
+
+            if (year.Length <= 3)
+            {
+                year = year.Insert(0, "2");
+            }
+            #endregion
+
+            ///формируем окончательную строку с датой 
+            result = string.Format($"{day}.{month}.{year}");
+
+            return result;
+        }       
+
+        /// <summary>
+        /// Удаляем все значения с определенного индекса
+        /// </summary>
+        /// <param name="words">Массив значений</param>
+        /// <returns>Возврат "укороченной" строки</returns>
+        private static string[] DelByIndex(string[] words)
+        {
+            for (int i = 2; i < words.Length; i++)
+            {
+                DelByIndex(ref words, i);
+            }
+
+            return words;
+        }
+
+        /// <summary>
+        /// Добавляем ноль к месяцу или дню, если он меньше двух знаков
+        /// </summary>
+        /// <param name="value">Значение</param>
+        /// <returns>Возвращаем значение с "0" спереди</returns>
+        private static string ZiroInFront(string value)
+        {
+            if (Int32.Parse(value) <= 9 && value.Length == 1)
+            {
+                value = value.Insert(0, "0");
+            }
+
+            return value;
+        }
+
+        /// <summary>
+        /// Удаляем значение из массива по индексу
+        /// </summary>
+        /// <param name="data">Массив значений</param>
+        /// <param name="delIndex">Удадяемый индекс</param>
+        public static void DelByIndex(ref string[] data, int delIndex)
+        {
+            string[] newData = new string[data.Length - 1];
+            for (int i = 0; i < delIndex; i++)
+            {
+                newData[i] = data[i];
+            }
+            for (int i = delIndex; i < newData.Length; i++)
+            {
+                newData[i] = data[i + 1];
+            }
+            data = newData;
+        }
+
+        /// <summary>
+        /// Удаляем из массива по значению
+        /// </summary>
+        /// <param name="data">Массив значений</param>
+        /// <param name="delValue">Удаляемій параметр</param>
+        public static void DelByValue(ref string[] data, string delValue)
+        {
+            for (int i = 0; i < data.Length; i++)
+            {
+                if (data[i] == delValue)
                 {
-                    digitword += words[i];
+                    DelByIndex(ref data, i);
+                    i--;
                 }
             }
-
-            TabToString(words);//I check the content of my tab
-
-            for (int i = 0; i < words.Length; i++)
-            {
-                if (words[i] != null)
-                {
-                    fin += words[i] + ";";
-                    Console.WriteLine(fin);//help for debug
-                }
-            }
-
-            return fin;
         }
 
-
-        public static void TabToString(string[] montab)//display the content of my tab
-        {
-            foreach (string s in montab)
-            {
-                Console.WriteLine(s);
-            }
-        }
-
-        public static string ParseFile(string FilePath)
-        {
-            using (var streamReader = new StreamReader(FilePath))
-            {
-                return streamReader.ReadToEnd().Replace(Environment.NewLine, string.Empty).Replace(" ", string.Empty).Replace(',', ';');
-            }
-        }
 
         public static string ParseString(string input)
         {
